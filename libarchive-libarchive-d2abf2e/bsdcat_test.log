@@ -1,0 +1,35 @@
+
+If tests fail or crash, details will be in:
+   /tmp/bsdcat_test.2019-01-20T18.17.17-000
+
+Reference files will be read from: /home/vashishtha/Desktop/Filebuff_project/libarchive-libarchive-d2abf2e/cat/test
+Running tests on: "/home/vashishtha/Desktop/Filebuff_project/libarchive-libarchive-d2abf2e/bsdcat"
+Exercising: bsdcat 3.3.4dev - libarchive 3.3.4dev zlib/1.2.11 liblzma/5.2.2 
+
+  0: test_0                                                          ok
+  1: test_empty_gz                                                   ok
+  2: test_empty_lz4                                                  ok (S)
+  3: test_empty_xz                                                   ok
+  4: test_empty_zstd                                                 ok (S)
+  5: test_error                                                      ok
+  6: test_error_mixed                                                ok
+  7: test_expand_bz2                                                 ok
+  8: test_expand_gz                                                  ok
+  9: test_expand_lz4                                                 ok (S)
+ 10: test_expand_mixed                                               ok
+ 11: test_expand_plain                                               ok
+ 12: test_expand_xz                                                  ok
+ 13: test_expand_Z                                                   ok
+ 14: test_expand_zstd                                                ok (S)
+ 15: test_help                                                       ok
+ 16: test_stdin                                                      ok
+ 17: test_version                                                    ok
+
+Totals:
+  Tests run:               18
+  Tests failed:             0
+  Assertions checked:    1039
+  Assertions failed:        0
+  Skips reported:           4
+18 tests passed, no failures
+PASS bsdcat_test (exit status: 0)
