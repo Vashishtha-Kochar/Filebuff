@@ -6,22 +6,10 @@
 #include <archive_entry.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <vector>
 
-void handler(int sig) {
-    void *array[10];
-    size_t size;
-
-    // get void*'s for all entries on the stack
-    size = backtrace(array, 10);
-
-    // print out all the frames to stderr
-    fprintf(stderr, "Error: signal %d:\n", sig);
-    backtrace_symbols_fd(array, size, STDERR_FILENO);
-    exit(1);
-}
-
-
-class fileBuff{
+class fileBuff
+{
     private:
         void* data;
         size_t data_size;
@@ -33,13 +21,13 @@ class fileBuff{
         ~fileBuff();
 
         void set(void* temp_data, size_t temp_size);
-        size_t Read( const char* filePath);
         void* getdata(){return data;}
         size_t getdatasize(){return data_size;}
-
-        int list();
-
-        fileBuff* decompress(fileBuff* output);
+        
+        size_t Read( const char* filePath);
+        size_t Write( const char* filePath);
+        std::vector<std::string>  list();
+        void decompress(std::vector<fileBuff*> &output);
 };
 
 // Default Constructor
@@ -49,6 +37,7 @@ fileBuff::fileBuff()
     data_size = 0; 
 }
 
+// Constructor with both arguements
 fileBuff::fileBuff(void* temp_data, size_t temp_size)
 {
    set(temp_data,temp_size);
@@ -60,19 +49,65 @@ void fileBuff::set(void* temp_data, size_t temp_size){
     data_size = temp_size;
 };
 
-// Method to read from a filepath
+// Method to read to Filebuff from a filepath
 size_t fileBuff::Read( const char* filePath)
 {
-    return 0;
+    // Open the file
+    FILE * archiveFilePointer = NULL;
+    size_t fileSize = 0;
+    archiveFilePointer = fopen (filePath,"r");
+    
+    if (archiveFilePointer==NULL){
+        std::cout<<"Error: could not open "<<filePath<<std::endl;
+        return 0;
+    }
+
+    fseek(archiveFilePointer, 0L, SEEK_END); 
+  
+    // calculating the size of the file 
+    fileSize = ftell(archiveFilePointer);
+    std::cout<<filePath<<" has the size of "<<fileSize<<" bytes"<<std::endl;
+
+    //Sets the position indicator associated with archiveFilePointer to the beginning of the file.
+    rewind(archiveFilePointer);
+
+    //Allocate appropriate space to dataptr to store contents of the stream
+    data = (char*) malloc (sizeof(char)*fileSize);
+
+    // Start reading from the file to the fileBuff object
+    data_size = fread(data,1,fileSize,archiveFilePointer);
+    std::cout<<"No of items read: "<<data_size<<std::endl;
+
+    fclose (archiveFilePointer);
+    return data_size;
+}
+
+// Method to write to file from a Filebuff
+size_t fileBuff::Write( const char* filePath)
+{
+    // Open the file
+    FILE * archiveFilePointer = NULL;
+    archiveFilePointer = fopen (filePath,"wb");
+    if (archiveFilePointer==NULL)
+    {
+        std::cout<<"Error: could not write to "<<filePath<<std::endl;
+    }
+
+    int noWritten = fwrite(data,1,data_size,archiveFilePointer);
+    std::cout<<"No of bytes written: "<<noWritten<<std::endl;
+
+    fclose (archiveFilePointer);
+    return noWritten;
 }
 
 // List items in an archive
-int fileBuff::list()
+std::vector<std::string> fileBuff::list()
 {
 
     // Obtain an initialized archive object
     struct archive *a = archive_read_new();
     int numberOfFiles = 0;
+    std::vector<std::string> listOfItems;
 
     // Obtain a archive_entry object to read individual entries of the archive
     struct archive_entry *entry = nullptr;
@@ -94,7 +129,7 @@ int fileBuff::list()
 
     // Read every entry of the archive and Print its path
     while (archive_read_next_header(a, &entry) == ARCHIVE_OK) {
-        std::cout<<archive_entry_pathname(entry)<<std::endl;
+        listOfItems.push_back(archive_entry_pathname(entry));
         numberOfFiles++;
         archive_read_data_skip(a);
     }
@@ -105,17 +140,17 @@ int fileBuff::list()
         std::cout<<"Error 4: "<<archive_error_string(a)<<std::endl;
     }
 
-    return numberOfFiles;
+    return listOfItems;
 }
 
-fileBuff* fileBuff::decompress(fileBuff* output){
+// Decompress the object to a vector of fileBuffs
+void fileBuff::decompress(std::vector<fileBuff*> &output){
     
     //Obtain an initialized struct archive object
     struct archive *archive = archive_read_new();
     struct archive_entry *entry = nullptr;
     
     //For archive stored in memory: Enable the gzip compression and tar format support
-    // For archive stored in memory: Enable the gzip compression and tar format support
     int r = archive_read_support_filter_all(archive);
     if (r != ARCHIVE_OK) {
         std::cout<<"Error 1: "<<archive_error_string(archive)<<std::endl;
@@ -132,65 +167,28 @@ fileBuff* fileBuff::decompress(fileBuff* output){
         /* ERROR */
         std::cout<<"Error, could not read from the memory location specified : "<<archive_error_string(archive);
 
-        return nullptr;
     }
-    
-    //Get number of files in the compressed file
-    // int number_of_files = 0;
-    // while (archive_read_next_header(archive, &entry) == ARCHIVE_OK) {
-    //     number_of_files++;
-    //     archive_read_data_skip(archive);
-    // }
 
-    // r = archive_read_next_header(archive, &entry);
-    // if (r != ARCHIVE_OK) {
-    //     /* ERROR */
-    //     std::cout<<"Error : "<<archive_error_string(archive);;
-    // }
-    int i = 0;
+    // Read each header of the archive and create a new fileBuff in output for every header 
     while (archive_read_next_header(archive, &entry) == ARCHIVE_OK) {
-        //get the size of the file
-        // std::cout<<"Iteration number "<<i+1<<std::endl;
-        // std::cout<<archive_entry_pathname(entry)<<std::endl;
         size_t buffsize = archive_entry_size(entry);
         void* buff  = malloc(buffsize);
         size_t size = archive_read_data(archive, buff, buffsize);
         
-        output[i].set(buff, size);
         if (size < 0) {
             /* ERROR */
         }
-        if (size == 0)
-            break;
+        if (size == 0)  break;
+        output.push_back(new fileBuff(buff, size));
+        
         archive_read_data_skip(archive);
-        i++;
     }
-//     for (int i=0;i<1;i++) {
-//         //get the size of the file
-//         std::cout<<"\n"<<archive_entry_pathname(entry);
-//         size_t buffsize = archive_entry_size(entry);
-//         void* buff = NULL;
-//         size_t size = archive_read_data(archive, buff, buffsize);
-        
-//         // output[i].set(buff, size);
-//         if (size < 0) {
-//             /* ERROR */
-//         }
-//         if (size == 0)
-//             break;
-        
-//         r = archive_read_next_header(archive, &entry);
-//         if (r != ARCHIVE_OK) {
-//             /* ERROR */
-//             break;
-//         }
-//     }
-
+    
+    // Release resources
     archive_read_free(archive);
-
-    return output;
 }
 
+// Destructor to handle memory leaks
 fileBuff::~fileBuff()
 {
     if ( data != nullptr )
