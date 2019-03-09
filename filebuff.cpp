@@ -1,6 +1,6 @@
 # include "filebuff.h"
 # include <string>
-# define FILENAME "CM.zip"
+# define FILENAME "Test.zip"
 
 int main(int argc, char const *argv[])
 {   
@@ -20,8 +20,7 @@ int main(int argc, char const *argv[])
     // Write to file to demonstrate the decompression
     
     for(int i = 0; i < output.size(); i++){
-        const char* filename = listOfFiles[i].c_str();
-        output[i]->Write(filename);
+        output[i]->Write("Output/" + listOfFiles[i]);
     }
 
     //close file

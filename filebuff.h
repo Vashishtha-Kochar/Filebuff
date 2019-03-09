@@ -24,8 +24,8 @@ class fileBuff
         void* getdata(){return data;}
         size_t getdatasize(){return data_size;}
         
-        size_t Read( const char* filePath);
-        size_t Write( const char* filePath);
+        size_t Read( std::string filePath);
+        size_t Write( std::string filePath);
         std::vector<std::string>  list();
         void decompress(std::vector<fileBuff*> &output);
 };
@@ -44,18 +44,19 @@ fileBuff::fileBuff(void* temp_data, size_t temp_size)
 }
 
 //Method to set data and datasize
-void fileBuff::set(void* temp_data, size_t temp_size){
+void fileBuff::set(void* temp_data, size_t temp_size)
+{
     data = temp_data;
     data_size = temp_size;
 };
 
 // Method to read to Filebuff from a filepath
-size_t fileBuff::Read( const char* filePath)
+size_t fileBuff::Read( std::string filePath)
 {
     // Open the file
     FILE * archiveFilePointer = NULL;
     size_t fileSize = 0;
-    archiveFilePointer = fopen (filePath,"r");
+    archiveFilePointer = fopen (filePath.c_str(),"r");
     
     if (archiveFilePointer==NULL){
         std::cout<<"Error: could not open "<<filePath<<std::endl;
@@ -83,11 +84,24 @@ size_t fileBuff::Read( const char* filePath)
 }
 
 // Method to write to file from a Filebuff
-size_t fileBuff::Write( const char* filePath)
+size_t fileBuff::Write( std::string filePath)
 {
+    // Check for folder
+    if(filePath.back() == '/')
+    {
+        // Creating a directory
+        if (mkdir(filePath.c_str(), 0777) == -1) 
+            std::cerr << "Error : Could not create directory"<< std::endl; 
+    
+        else
+            std::cout << "Directory created";
+        
+        return 0;
+    }
+
     // Open the file
     FILE * archiveFilePointer = NULL;
-    archiveFilePointer = fopen (filePath,"wb");
+    archiveFilePointer = fopen (filePath.c_str(),"wb");
     if (archiveFilePointer==NULL)
     {
         std::cout<<"Error: could not write to "<<filePath<<std::endl;
@@ -105,39 +119,43 @@ std::vector<std::string> fileBuff::list()
 {
 
     // Obtain an initialized archive object
-    struct archive *a = archive_read_new();
-    int numberOfFiles = 0;
+    struct archive *archive = archive_read_new();
     std::vector<std::string> listOfItems;
 
     // Obtain a archive_entry object to read individual entries of the archive
     struct archive_entry *entry = nullptr;
 
     // For archive stored in memory: Enable the gzip compression and tar format support
-    int r = archive_read_support_filter_all(a);
+    int r = archive_read_support_filter_all(archive);
     if (r != ARCHIVE_OK) {
-        std::cout<<"Error 1: "<<archive_error_string(a)<<std::endl;
+        std::cout<<"Error 1: "<<archive_error_string(archive)<<std::endl;
     }
-    r = archive_read_support_format_zip(a);
+    r = archive_read_support_format_zip(archive);
     if (r != ARCHIVE_OK) {
-        std::cout<<"Error 2: "<<archive_error_string(a)<<std::endl;
+        std::cout<<"Error 2: "<<archive_error_string(archive)<<std::endl;
     }
     // Freeze the settings, open the archive, and prepare for reading entries. Return ARCHIVE_OK on success
-    r = archive_read_open_memory(a, data, data_size);
+    r = archive_read_open_memory(archive, data, data_size);
     if (r != ARCHIVE_OK) {
-        std::cout<<"Error 3: "<<archive_error_string(a)<<std::endl;
+        std::cout<<"Error 3: "<<archive_error_string(archive)<<std::endl;
     }
 
     // Read every entry of the archive and Print its path
-    while (archive_read_next_header(a, &entry) == ARCHIVE_OK) {
+    while (archive_read_next_header(archive, &entry) == ARCHIVE_OK) {
+        std::cout<<archive_entry_pathname(entry)<<std::endl;
+        
+        // Check for folders
+        // if(archive_entry_size(entry) == 0){
+        //     continue;
+        // }
         listOfItems.push_back(archive_entry_pathname(entry));
-        numberOfFiles++;
-        archive_read_data_skip(a);
+        archive_read_data_skip(archive);
     }
 
     // Free the archive object. Return ARCHIVE_OK on success
-    r = archive_read_free(a);
+    r = archive_read_free(archive);
     if (r != ARCHIVE_OK){
-        std::cout<<"Error 4: "<<archive_error_string(a)<<std::endl;
+        std::cout<<"Error 4: "<<archive_error_string(archive)<<std::endl;
     }
 
     return listOfItems;
@@ -177,8 +195,11 @@ void fileBuff::decompress(std::vector<fileBuff*> &output){
         
         if (size < 0) {
             /* ERROR */
+            std::cout<<"Error";
         }
-        if (size == 0)  break;
+        // if (size == 0){
+        //     continue;
+        // }
         output.push_back(new fileBuff(buff, size));
         
         archive_read_data_skip(archive);
