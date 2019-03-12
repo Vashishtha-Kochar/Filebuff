@@ -5,15 +5,23 @@
 #include <string>
 #include <vector>
 #include <algorithm>
+#include <map> 
+
+struct option{
+    std::string optionName;
+    std::string* arguements;
+};
 
 class InputParser{
     private:
-        std::vector <std::string> tokens;
+        
+        std::map<std::string, std::vector <std::string>> tokens;
 
     public:
-        InputParser (int &argc, char **argv);
-        const std::string& getCmdOption(const std::string &option) const;
-        bool cmdOptionExists(const std::string &option) const;
+        InputParser (int &argc, char **argv, std::vector <option> options);
+        ~InputParser();
+        std::string* getCmdOption(std::string &option);
+        bool cmdOptionExists(std::string &option);
 };
 
 #endif // __INPUTPARSER_H_INCLUDED__

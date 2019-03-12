@@ -1,3 +1,4 @@
 Different file types(extensions)
 Folders and files both in a zip file ( Allow user choice for listing all files in subfolders or only in the folder we are in)
-Decompress without liting ( Challenge is to find number of files in the archive)
+Decompress without listing ( Challenge is to find number of files in the archive)
+Writing metadata(Title) to the file
