@@ -5,19 +5,22 @@
 #include "filebuff.h"
 #include <sys/types.h>
 #include <sys/stat.h>
-
+#include <string>
+#include <algorithm>
+#include <iterator>
 
 // Default Constructor
 fileBuff::fileBuff()
 {
     data = nullptr;
-    data_size = 0; 
+    data_size = 0;
+    name = "";
 }
 
 // Constructor with both arguements
-fileBuff::fileBuff(void* temp_data, size_t temp_size)
+fileBuff::fileBuff(void* temp_data, size_t temp_size, std::string temp_name)
 {
-   set(temp_data,temp_size);
+   set(temp_data,temp_size, temp_name);
 }
 
 // Destructor to handle memory leaks
@@ -26,14 +29,16 @@ fileBuff::~fileBuff()
     if ( data != nullptr )
         free (data);
     data = nullptr;
-    data_size = 0;  
+    data_size = 0;
+    name = "";
 }
 
 //Method to set data and datasize
-inline void fileBuff::set(void* temp_data, size_t temp_size)
+inline void fileBuff::set(void* temp_data, size_t temp_size, std::string temp_name)
 {
     data = temp_data;
     data_size = temp_size;
+    name = temp_name;
 };
 
 // Method to read to Filebuff from a filepath
@@ -64,55 +69,55 @@ size_t fileBuff::Read( std::string filePath)
     data_size = fread(data,1,fileSize,archiveFilePointer);
     // std::cout<<"No of items read: "<<data_size<<std::endl;
 
+    name = filePath;
+
     fclose (archiveFilePointer);
     return data_size;
 }
 
 // Method to write to file from a Filebuff
-size_t fileBuff::Write( std::string filePath)
+size_t fileBuff::Write()
 {
-    // Check for folder
-    if(filePath.back() == '/')
-    {
-        // Check if directory exists already
-        struct stat info;
-        int r = stat( filePath.c_str(), &info );
-        if( info.st_mode & S_IFDIR )
-        {  
-            // The directory already exists
-            std::cout<<"\nThe directory "<<filePath<<" exists and will be overwritten";
-            std::cout<<"\nDo you wish to continue (y/n)? ";
-            char temp;
-            std::cin>>temp;
-            if(temp != 'y') return -1;
-            else return 0;
-        }
-        else
-        {
-            // Creating a directory
-            if (mkdir(filePath.c_str(), 0777) == -1) 
-                std::cerr << "\nError : Could not create directory "<<filePath; 
+    std::string filePath = "Output/" + name;
+    
+    // Creating appropriate directories for files if they don't exist
+    std::size_t current = filePath.find_last_of('/');
+    std::string rootDir = filePath.substr(0, current);
         
-            else
-                std::cout << "\nDirectory created : "<<filePath;
-            return 0;
-        }
+    // Check if directory exists already
+    struct stat info;
+    std::size_t r = stat( rootDir.c_str(), &info );
+    if( r == 0)
+    {  
+        // The directory already exists
+        std::cout<<"\n Directory already exists : "<<rootDir;
     }
-    else{
-        // Open the file
-        FILE * archiveFilePointer = NULL;
-        archiveFilePointer = fopen (filePath.c_str(),"wb");
-        if (archiveFilePointer==NULL)
+    else
+    {
+        // Creating a directory
+        if (mkdir(rootDir.c_str(), 0777) == -1)
         {
-            std::cout<<"Error: could not write to "<<filePath<<std::endl;
+            std::cerr << "\nError : Could not create directory :"<<rootDir;
+            return -1;
         }
-
-        int noWritten = fwrite(data,1,data_size,archiveFilePointer);
-        // std::cout<<"No of bytes written: "<<noWritten<<std::endl;
-
-        fclose (archiveFilePointer);
-        return noWritten;
+        else{
+            std::cout << "\nDirectory created : "<<rootDir;
+        }
     }
+
+    // Open the file
+    FILE * archiveFilePointer = NULL;
+    archiveFilePointer = fopen (filePath.c_str(),"wb");
+    if (archiveFilePointer==NULL)
+    {
+        std::cout<<"\nError: could not write to "<<filePath<<std::endl;
+    }
+
+    int noWritten = fwrite(data,1,data_size,archiveFilePointer);
+    // std::cout<<"No of bytes written: "<<noWritten<<std::endl;
+
+    fclose (archiveFilePointer);
+    return noWritten;
 }
 
 // List items in an archive
@@ -179,10 +184,20 @@ void fileBuff::compress(std::vector<fileBuff*> &input)
     //     std::cout<<"Error : "<<archive_error_string(archive)<<std::endl;
     // }
 
-    // archive_write_open_memory(archive, data, data_size);
+    // // Buffer size = Total Data size
+    // size_t buffer_size = 0;
+    // for (std::vector<fileBuff*>::iterator ptr = input.begin(); ptr < input.end(); ptr++){
+    //     buffer_size += (*ptr)->getdatasize;
+    // }
+
+    // data =  malloc(buffer_size);
+    // archive_write_open_memory(archive, data, buffer_size , &data_size);
 
     // for (std::vector<fileBuff*>::iterator ptr = input.begin(); ptr < input.end(); ptr++)
     // {
+    //     entry = archive_entry_new();
+
+
     //     //Freeze the settings, open the archive, and prepare for reading entries. Return ARCHIVE_OK on success
     //     r = archive_read_open_memory(archive, (*ptr)->getdata(), (*ptr)->getdatasize());
 
@@ -198,7 +213,7 @@ void fileBuff::compress(std::vector<fileBuff*> &input)
 std::vector<fileBuff*> fileBuff::decompress()
 {
     std::vector<fileBuff*> output;
-
+    
     //Obtain an initialized struct archive object
     struct archive *archive = archive_read_new();
     struct archive_entry *entry = nullptr;
@@ -221,7 +236,6 @@ std::vector<fileBuff*> fileBuff::decompress()
         /* ERROR */
         std::cout<<"Error, could not read from the memory location specified : "<<archive_error_string(archive);
     }
-
     // Read each header of the archive and create a new fileBuff in output for every header 
     while (archive_read_next_header(archive, &entry) == ARCHIVE_OK) {
         size_t buffsize = archive_entry_size(entry);
@@ -232,7 +246,12 @@ std::vector<fileBuff*> fileBuff::decompress()
             /* ERROR */
             std::cout<<"Error";
         }
-        output.push_back(new fileBuff(buff, size));
+
+        if(size == 0){
+            // Directories don't have filebuffs
+            continue;
+        }
+        output.push_back(new fileBuff(buff, size, std::string(archive_entry_pathname(entry))));
         
         archive_read_data_skip(archive);
     }

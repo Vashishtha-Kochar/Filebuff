@@ -28,7 +28,7 @@ int main(int argc, char **argv)
     for(int i = 1; i < argc; i++ ){
         arguements.push_back(std::string(argv[i]));
     }
-    
+
     // Check if no arguements were passed
     if(arguements.empty())
     {
@@ -77,33 +77,38 @@ int main(int argc, char **argv)
             }
         }
     };
-    
+
     // Check if asked to decompress files
     if(decompress != arguements.end()){
         
         // Check if input filenames are given
-        if((decompress+1) == arguements.end() || (decompress+1) == compress || (decompress+1) == list)
+        if((decompress+1) == arguements.end() || (decompress+1) == compress || (decompress+1) == list )
         {
             std::cout<<"\nToo less arguements for decompress."<<HELP;
             std::cout<<"\n";
             return 0;
         }
 
+
         // Decompress each file
-        for(int i = 1; (decompress+i) != list && (decompress+i) != compress && (decompress+i) != arguements.end(); i++){
-            std::cout<<"\nDecompressing "<<filename;
-            std::string filename = *(decompress+i);
+        for(int i = 1; (decompress+i) != list && (decompress+i) != compress && (decompress+i) != arguements.end(); i++)
+        {
+            std::string filename = *(decompress + i);
+            std::cout<<"\nDecompressing " << filename;
             size_t sizeRead = fileObject -> Read(filename);
             if(sizeRead == -1)
             {
                 std::cout<<"\nFile Not Found : "<<filename;
                 continue;
             }
-            listOfFiles = fileObject -> list();
             output = fileObject -> decompress();
+            std::cout<<"\nNumber of files in "<<filename<<" : "<<output.size();
+            std::cout<<"\nWriting to disk";
             for(int i = 0; i < output.size(); i++){
-                if((output[i]->Write("Output/" + listOfFiles[i])) == -1)
+                std::cout<<"\nWriting to "<<output[i] -> getname();
+                if(output[i] -> Write() == -1)
                 {
+                    // Error cannot write to directory
                     return 0;
                 }
             }
